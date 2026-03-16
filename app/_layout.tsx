@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Camera, CameraType, CameraView } from 'expo-camera';
 import * as Location from 'expo-location';
 import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
@@ -66,8 +67,28 @@ useEffect(() => {
 }, []);
 
   
+const sharePhoto = async () => {
+  if (!viewShotRef.current) return;
 
+  try {
+    const uri = await viewShotRef.current.capture();
 
+   
+
+    if (!(await Sharing.isAvailableAsync())) {
+      alert("Sharing is not available on this device");
+      return;
+    }
+
+    await Sharing.shareAsync(uri, {
+      dialogTitle: "Share your photo",
+    });
+
+    setPhotoUri(null)
+  } catch (error) {
+    console.log("Share error:", error);
+  }
+};
 
   // Take photo with camera
   const takePhoto = async () => {
@@ -219,7 +240,8 @@ if (hasCameraPermission === null || hasLocationPermission === null) {
           <View style={{paddingHorizontal: 5 , flexDirection: 'row', justifyContent: 'space-between',marginTop: 10}}>
              <Text style={{color: 'black' , fontWeight: 'bold'}}>{date ? `Date: ${date}` : 'loading...'}</Text>
               <Text style={{color: 'black', fontWeight: 'bold'}}>{location ? `latitude: ${location?.latitude}` : 'loading...'}</Text>
-          </View>
+              </View>
+              
 
           <View style={{paddingHorizontal: 5 ,flexDirection: 'row', justifyContent: 'space-between',marginTop: 5}}>
              <Text style={{color: 'black', fontWeight: 'bold'}}>{time ? `Time: ${time}` : 'loading...'}</Text>
@@ -258,25 +280,37 @@ if (hasCameraPermission === null || hasLocationPermission === null) {
         ) : (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', position: 'absolute', width: '100%', bottom: 1, paddingHorizontal: 20 }}>
               
-                <TouchableOpacity hitSlop={{top:100 , bottom: 100 , left: 100 , right: 100}} onPress={() => setPhotoUri(null)} >
+               
+
+
+
+               <TouchableOpacity hitSlop={{top:100 , bottom: 100 , left: 50 , right: 50}} onPress={sharePhoto} >
+                <Ionicons
+                  name="share-social"
+                  size={30}
+                  color="white"
+              
+                />
+              </TouchableOpacity>
+
+
+               <TouchableOpacity hitSlop={{top:100 , bottom: 100 , left: 50 , right: 50}} onPress={() => setPhotoUri(null)} >
                 <Ionicons
                   name="refresh"
                   size={30}
                   color="white"
               
                 />
-
-               
               </TouchableOpacity>
 
-                <TouchableOpacity hitSlop={{top:100 , bottom: 100 , left: 100 , right: 100}}  onPress={savePhotoWithOverlay}>
+
+                <TouchableOpacity hitSlop={{top:100 , bottom: 100 , left: 50 , right: 50}}  onPress={savePhotoWithOverlay}>
                  <Ionicons
                     name="download"
                     size={30}
                     color="white"
                   
                   />
-      
               </TouchableOpacity>
             </View>
  
