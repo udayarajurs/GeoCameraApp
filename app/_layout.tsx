@@ -4,11 +4,11 @@ import * as Location from 'expo-location';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
 export default function RootLayout() {
- 
+
   const cameraRef = useRef<Camera | null>(null);
   const viewShotRef = useRef<ViewShot | null>(null);
   const [facing, setFacing] = useState<CameraType>('back');
@@ -19,76 +19,77 @@ export default function RootLayout() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
 
-  
-useEffect(() => {
-  (async () => {
 
-    // Camera permission
-    const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
-    setHasCameraPermission(cameraStatus === 'granted');
+  useEffect(() => {
+    (async () => {
 
-    // Location permission
-    const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-    const granted = locationStatus === 'granted';
-    setHasLocationPermission(granted);
+      // Camera permission
+      const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
+      setHasCameraPermission(cameraStatus === 'granted');
+
+      // Location permission
+      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
+      const granted = locationStatus === 'granted';
+      setHasLocationPermission(granted);
 
 
-    // Get location immediately
-    if (granted) {
-      try {
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
+      // Get location immediately
+      if (granted) {
+        try {
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
 
-        const address = await Location.reverseGeocodeAsync({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
+          const address = await Location.reverseGeocodeAsync({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
 
-        setLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-          address: {
-            formattedAddress: `${address[0]?.formattedAddress || ''}`,
-          },
-        });
+          setLocation({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            address: {
+              formattedAddress: `${address[0]?.formattedAddress || ''}`,
+            },
+          });
 
-      } catch (error) {
-        console.log("Location error:", error);
+        } catch (error) {
+          console.log("Location error:", error);
+        }
       }
+
+      // Date & Time
+      const now = new Date();
+      setDate(now.toLocaleDateString());
+      setTime(now.toLocaleTimeString());
+
+    })();
+  }, []);
+
+
+  const sharePhoto = async () => {
+    if (!viewShotRef.current) return;
+
+    try {
+      const uri = await viewShotRef.current.capture();
+
+
+
+      if (!(await Sharing.isAvailableAsync())) {
+        alert("Sharing is not available on this device");
+        return;
+      }
+
+      await Sharing.shareAsync(uri, {
+        dialogTitle: "Share your photo",
+
+      });
+
+      setPhotoUri(null)
+    } catch (error) {
+      console.log("Share error:", error);
     }
-
-    // Date & Time
-    const now = new Date();
-    setDate(now.toLocaleDateString());
-    setTime(now.toLocaleTimeString());
-
-  })();
-}, []);
-
-  
-const sharePhoto = async () => {
-  if (!viewShotRef.current) return;
-
-  try {
-    const uri = await viewShotRef.current.capture();
-
-   
-
-    if (!(await Sharing.isAvailableAsync())) {
-      alert("Sharing is not available on this device");
-      return;
-    }
-
-    await Sharing.shareAsync(uri, {
-      dialogTitle: "Share your photo",
-    });
-
-    setPhotoUri(null)
-  } catch (error) {
-    console.log("Share error:", error);
-  }
-};
+  };
 
   // Take photo with camera
   const takePhoto = async () => {
@@ -106,21 +107,21 @@ const sharePhoto = async () => {
       const uri = await viewShotRef.current.capture();
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
-       
-         Alert.alert(
-    "Permission Required",
-    "Please allow photo access in settings to save the image.",
-    [
-      {
-        text: "Cancel",
-        style: "cancel"
-      },
-      {
-        text: "Open Settings",
-        onPress: () => Linking.openSettings()
-      }
-    ]
-  );
+
+        Alert.alert(
+          "Permission Required",
+          "Please allow photo access in settings to save the image.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel"
+            },
+            {
+              text: "Open Settings",
+              onPress: () => Linking.openSettings()
+            }
+          ]
+        );
         return;
       }
 
@@ -130,7 +131,7 @@ const sharePhoto = async () => {
 
 
       alert('Image saved!');
-setPhotoUri(null)
+      setPhotoUri(null)
 
     } catch (error) {
       console.log('Error saving photo:', error);
@@ -138,182 +139,293 @@ setPhotoUri(null)
     }
   };
 
-if (hasCameraPermission === false || hasLocationPermission === false) {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+  if (hasCameraPermission === false || hasLocationPermission === false) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
 
-      <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 16 }}>
-        Camera & Location permissions are required
-      </Text>
-
-      <TouchableOpacity
-       onPress={async () => {
-
-          const camera = await Camera.requestCameraPermissionsAsync();
-          const location = await Location.requestForegroundPermissionsAsync();
-
-          if (camera.status === 'granted' && location.status === 'granted') {
-            setHasCameraPermission(true);
-            setHasLocationPermission(true);
-          } else {
-            alert("Please enable Camera and Location permission in Settings");
-            Linking.openSettings();
-          }
-
-        }}
-        style={{
-          marginTop: 20,
-          padding: 12,
-          backgroundColor: 'blue',
-          borderRadius: 6
-        }}
-      >
-        <Text style={{ color: 'white', fontWeight: 'bold' }}>
-          Grant Permissions
+        <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 16 }}>
+          Camera & Location permissions are required
         </Text>
 
-      </TouchableOpacity>
+        <TouchableOpacity
+          onPress={async () => {
 
-    </View>
-  );
-}
+            const camera = await Camera.requestCameraPermissionsAsync();
+            const location = await Location.requestForegroundPermissionsAsync();
 
-  
-if (hasCameraPermission === null || hasLocationPermission === null) {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <ActivityIndicator size="large" color="blue"  />
-    </View>
-  );
-}
- 
+            if (camera.status === 'granted' && location.status === 'granted') {
+              setHasCameraPermission(true);
+              setHasLocationPermission(true);
+            } else {
+              alert("Please enable Camera and Location permission in Settings");
+              Linking.openSettings();
+            }
+
+          }}
+          style={{
+            marginTop: 20,
+            padding: 12,
+            backgroundColor: 'blue',
+            borderRadius: 6
+          }}
+        >
+          <Text style={{ color: 'white', fontWeight: 'bold' }}>
+            Grant Permissions
+          </Text>
+
+        </TouchableOpacity>
+
+      </View>
+    );
+  }
+
+
+  if (hasCameraPermission === null || hasLocationPermission === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="blue" />
+      </View>
+    );
+  }
+
   const isLoading = !location || !date || !time;
+
+  const url = `google.navigation:q=${location?.latitude},${location?.longitude}`;
+
+  const shareLocation = async () => {
+    if (!location) {
+      alert("Location not available");
+      return;
+    }
+
+    const lat = location.latitude;
+    const lng = location.longitude;
+
+    const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
+
+    try {
+      await Share.share({
+        message: `📍 My Location:\n${mapLink}`,
+      });
+    } catch (error) {
+      console.log("Share error:", error);
+    }
+  };
 
   return (
     <View style={{ flex: 1 }}>
+
+
+
+
+      {isLoading ? <ActivityIndicator style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} size="large" color="white" /> : <TouchableOpacity hitSlop={{ top: 100, bottom: 100, left: 50, right: 50 }} style={{ position: 'absolute', top: 50, right: 20, zIndex: 10 }} onPress={shareLocation} >
+        <Ionicons
+          name="location"
+          size={30}
+          color="white"
+
+        />
+      </TouchableOpacity>
+
+
+
+
+      }
+
       {photoUri ? (
 
         <ViewShot ref={viewShotRef} style={{ flex: 1 }} options={{ format: 'jpg', quality: 1 }}>
           <Image source={{ uri: photoUri }} style={{ flex: 1 }} />
-          <View style={styles.overlay}>
-     
-        
-          <View>
-             <Text style={{color: 'black', fontWeight: 'bold'}}>{location ? location?.address?.formattedAddress : 'loading...'}</Text>
-         </View>
 
 
-          <View style={{paddingHorizontal: 5 , flexDirection: 'row', justifyContent: 'space-between',marginTop: 10}}>
-             <Text style={{color: 'black' , fontWeight: 'bold'}}>{date ? `Date: ${date}` : 'loading...'}</Text>
-              <Text style={{color: 'black', fontWeight: 'bold'}}>{location ? `latitude: ${location?.latitude}` : 'loading...'}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', position: 'absolute', bottom: 130, flex: 1, }}>
+
+
+            <View style={{
+              backgroundColor: 'rgba(248, 246, 246, 0.78)',
+              padding: 10,
+              borderRadius: 8,
+              width: '74%',
+              marginStart: 5
+
+            }}>
+
+
+              <View>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? location?.address?.formattedAddress : 'loading...'}</Text>
+              </View>
+
+
+
+              <View style={{ paddingHorizontal: 5, flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{date ? `Date: ${date}` : 'loading...'}</Text>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `latitude: ${location?.latitude}` : 'loading...'}</Text>
+              </View>
+
+              <View style={{ paddingHorizontal: 5, flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{time ? `Time: ${time}` : 'loading...'}</Text>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `longitude: ${location?.longitude}` : 'loading...'}</Text>
+              </View>
+
+
+
+
+
+
+
+            </View>
+
+
+            <TouchableOpacity
+              onPress={() => Linking.openURL(url)}
+            >
+              <Image
+                source={require('../assets/images/mapIcon.png')}
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 10,
+                  top: 3
+                }}
+              />
+
+
+            </TouchableOpacity>
           </View>
 
-          <View style={{paddingHorizontal: 5 ,flexDirection: 'row', justifyContent: 'space-between',marginTop: 5}}>
-             <Text style={{color: 'black', fontWeight: 'bold'}}>{time ? `Time: ${time}` : 'loading...'}</Text>
-            <Text style={{color: 'black', fontWeight: 'bold'}}>{location ? `longitude: ${location?.longitude}` : 'loading...'}</Text>
-          </View>
-         
-  
-  </View>
         </ViewShot>
       ) : (
-     
 
 
-          
-          <View style={{ flex: 1 }}>
-    <CameraView  ref={cameraRef} style={{flex: 1}} facing={facing}  mode="picture"/>
-  <View style={{position: 'absolute',
-    bottom: 175,
-    left: 15,
-    right: 15,
-    backgroundColor: 'rgba(248, 246, 246, 0.78)',
-    padding: 10,
-    borderRadius: 8,}}>
-     
-        
-          <View>
-             <Text style={{color: 'black', fontWeight: 'bold'}}>{location ? location?.address?.formattedAddress : 'loading...'}</Text>
-         </View>
 
 
-          <View style={{paddingHorizontal: 5 , flexDirection: 'row', justifyContent: 'space-between',marginTop: 10}}>
-             <Text style={{color: 'black' , fontWeight: 'bold'}}>{date ? `Date: ${date}` : 'loading...'}</Text>
-              <Text style={{color: 'black', fontWeight: 'bold'}}>{location ? `latitude: ${location?.latitude}` : 'loading...'}</Text>
+        <View style={{ flex: 1 }}>
+          <CameraView ref={cameraRef} style={{ flex: 1 }} facing={facing} mode="picture" />
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', position: 'absolute', bottom: 175, flex: 1, }}>
+
+
+
+            <View style={{
+              backgroundColor: 'rgba(248, 246, 246, 0.78)',
+              padding: 10,
+              borderRadius: 8,
+              width: '75%',
+              marginStart: 5
+
+            }}>
+
+
+              <View>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? location?.address?.formattedAddress : 'loading...'}</Text>
               </View>
-              
 
-          <View style={{paddingHorizontal: 5 ,flexDirection: 'row', justifyContent: 'space-between',marginTop: 5}}>
-             <Text style={{color: 'black', fontWeight: 'bold'}}>{time ? `Time: ${time}` : 'loading...'}</Text>
-            <Text style={{color: 'black', fontWeight: 'bold'}}>{location ? `longitude: ${location?.longitude}` : 'loading...'}</Text>
+
+              <View style={{ paddingHorizontal: 5, flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{date ? `Date: ${date}` : 'loading...'}</Text>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `latitude: ${location?.latitude}` : 'loading...'}</Text>
+              </View>
+
+
+              <View style={{ paddingHorizontal: 5, flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{time ? `Time: ${time}` : 'loading...'}</Text>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `longitude: ${location?.longitude}` : 'loading...'}</Text>
+              </View>
+
+
+
+
+
+            </View>
+
+
+            <TouchableOpacity
+              onPress={() => Linking.openURL(url)}
+            >
+              <Image
+                source={require('../assets/images/mapIcon.png')}
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 10,
+                  top: 3
+                }}
+              />
+
+
+            </TouchableOpacity>
+
+
+
           </View>
-         
-  
-  </View>
-</View>
+        </View>
 
-  
-          
+
+
 
       )}
 
       <View style={styles.buttons}>
         {!photoUri ? (
-          
 
 
-          
-        <View>
-             {isLoading ? (
-                <View style={{ width:55, height:55, justifyContent:'center', alignItems:'center' }}>
-                  <ActivityIndicator size="large" color="white" />
-                </View>
-      ) : (
-      <View style={{ borderWidth: 2, borderColor: 'white', borderRadius: 50, padding: 3 }}>
+
+
+          <View>
+            {isLoading ? (
+              <View style={{ width: 55, height: 55, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="white" />
+              </View>
+            ) : (
+
+
+              <View style={{ borderWidth: 2, borderColor: 'white', borderRadius: 50, padding: 3 }}>
                 <TouchableOpacity onPress={takePhoto} disabled={!location}>
-                  <View style={{ width:55, height:55, borderRadius:30, backgroundColor:'white' }} />
-        </TouchableOpacity>
-            </View>
-              )}
+                  <View style={{ width: 55, height: 55, borderRadius: 30, backgroundColor: 'white' }} />
+                </TouchableOpacity>
 
-      </View>
+
+              </View>
+            )}
+
+          </View>
         ) : (
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', position: 'absolute', width: '100%', bottom: 1, paddingHorizontal: 20 }}>
-              
-               
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', position: 'absolute', width: '100%', bottom: 1, paddingHorizontal: 20 }}>
 
 
 
-               <TouchableOpacity hitSlop={{top:100 , bottom: 100 , left: 50 , right: 50}} onPress={sharePhoto} >
-                <Ionicons
-                  name="share-social"
-                  size={30}
-                  color="white"
-              
-                />
-              </TouchableOpacity>
 
 
-               <TouchableOpacity hitSlop={{top:100 , bottom: 100 , left: 50 , right: 50}} onPress={() => setPhotoUri(null)} >
-                <Ionicons
-                  name="refresh"
-                  size={30}
-                  color="white"
-              
-                />
-              </TouchableOpacity>
+            <TouchableOpacity hitSlop={{ top: 25, bottom: 100, left: 50, right: 50 }} onPress={sharePhoto} >
+              <Ionicons
+                name="share-social"
+                size={30}
+                color="white"
+
+              />
+            </TouchableOpacity>
 
 
-                <TouchableOpacity hitSlop={{top:100 , bottom: 100 , left: 50 , right: 50}}  onPress={savePhotoWithOverlay}>
-                 <Ionicons
-                    name="download"
-                    size={30}
-                    color="white"
-                  
-                  />
-              </TouchableOpacity>
-            </View>
- 
+            <TouchableOpacity hitSlop={{ top: 25, bottom: 100, left: 50, right: 50 }} onPress={() => setPhotoUri(null)} >
+              <Ionicons
+                name="refresh"
+                size={30}
+                color="white"
+
+              />
+            </TouchableOpacity>
+
+
+            <TouchableOpacity hitSlop={{ top: 25, bottom: 100, left: 50, right: 50 }} onPress={savePhotoWithOverlay}>
+              <Ionicons
+                name="download"
+                size={30}
+                color="white"
+
+              />
+            </TouchableOpacity>
+          </View>
+
         )}
       </View>
     </View>
@@ -321,15 +433,7 @@ if (hasCameraPermission === null || hasLocationPermission === null) {
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    position: 'absolute',
-    bottom: 125,
-    left: 15,
-    right: 15,
-    backgroundColor: 'rgba(248, 246, 246, 0.78)',
-    padding: 10,
-    borderRadius: 8,
-  },
+
   text: {
     color: 'white',
     fontWeight: 'bold',
@@ -347,4 +451,3 @@ const styles = StyleSheet.create({
 });
 
 
- 
