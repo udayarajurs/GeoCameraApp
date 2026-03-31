@@ -9,7 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.udayarajurs.GeoCameraApp",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to take photos.",
+        "NSPhotoLibraryUsageDescription": "This app saves photos to your gallery.",
+        "NSPhotoLibraryAddUsageDescription": "This app saves photos to your gallery.",
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to show address on photo."
+      }
     },
     "android": {
       "adaptiveIcon": {
