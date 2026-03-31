@@ -39,7 +39,8 @@
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.READ_MEDIA_IMAGES"
       ],
-      "package": "com.udayarajurs.GeoCameraApp"
+      "package": "com.udayarajurs.GeoCameraApp",
+       "versionCode": 2
     },
     "web": {
       "output": "static",
