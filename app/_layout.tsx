@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 
 export default function RootLayout() {
@@ -36,25 +36,80 @@ export default function RootLayout() {
       // Get location immediately
       if (granted) {
         try {
+          // 1. Try to get last known position first for a faster response
+          const lastKnown = await Location.getLastKnownPositionAsync({});
+          if (lastKnown) {
+            console.log("Using last known position");
+            updateLocationDetails(lastKnown);
+          }
+
+          // 2. Try to get current position with a timeout and balanced accuracy for iOS
+          // Accuracy.High can sometimes hang indefinitely on iOS indoors or in simulators
           const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.High,
+            accuracy: Location.Accuracy.Balanced,
+            // @ts-ignore - timeout is available in some versions or via options
+            timeout: 5000,
           });
 
-          const address = await Location.reverseGeocodeAsync({
+          if (loc) {
+            console.log("Using current position");
+            updateLocationDetails(loc);
+          }
+
+        } catch (error) {
+          console.log("Location error:", error);
+          // If Balanced failed, try one more time with a lower accuracy if location is still null
+          if (!location) {
+            try {
+              const lowAccLoc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Lowest,
+              });
+              if (lowAccLoc) updateLocationDetails(lowAccLoc);
+            } catch (e) {
+              console.log("Low accuracy location failed:", e);
+            }
+          }
+        }
+      }
+
+      async function updateLocationDetails(loc: any) {
+        try {
+          const addressList = await Location.reverseGeocodeAsync({
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude,
           });
 
+          if (addressList && addressList.length > 0) {
+            const addr = addressList[0];
+            const formatted = addr.formattedAddress ||
+              `${addr.street || ''} ${addr.name || ''}, ${addr.city || ''}, ${addr.region || ''} ${addr.postalCode || ''}`.trim().replace(/^,|,$/g, '');
+
+            setLocation({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              address: {
+                formattedAddress: formatted || 'Address not found',
+              },
+            });
+          } else {
+            // Still set coordinates if geocoding fails
+            setLocation({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              address: {
+                formattedAddress: 'Address lookup failed',
+              },
+            });
+          }
+        } catch (err) {
+          console.log("Reverse Geocode error:", err);
           setLocation({
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude,
             address: {
-              formattedAddress: `${address[0]?.formattedAddress || ''}`,
+              formattedAddress: 'Geocoding Error',
             },
           });
-
-        } catch (error) {
-          console.log("Location error:", error);
         }
       }
 
@@ -190,7 +245,11 @@ export default function RootLayout() {
 
   const isLoading = !location || !date || !time;
 
-  const url = `google.navigation:q=${location?.latitude},${location?.longitude}`;
+  const url = Platform.select({
+    ios: `maps://0,0?q=${location?.latitude},${location?.longitude}`,
+    android: `google.navigation:q=${location?.latitude},${location?.longitude}`,
+    default: `https://www.google.com/maps/search/?api=1&query=${location?.latitude},${location?.longitude}`
+  });
 
   const shareLocation = async () => {
     if (!location) {
@@ -259,12 +318,12 @@ export default function RootLayout() {
 
               <View style={{ paddingHorizontal: 5, flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
                 <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{date ? `Date: ${date}` : 'loading...'}</Text>
-                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `latitude: ${location?.latitude}` : 'loading...'}</Text>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `latitude: ${location?.latitude.toFixed(5)}` : 'loading...'}</Text>
               </View>
 
               <View style={{ paddingHorizontal: 5, flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
                 <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{time ? `Time: ${time}` : 'loading...'}</Text>
-                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `longitude: ${location?.longitude}` : 'loading...'}</Text>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `longitude: ${location?.longitude.toFixed(5)}` : 'loading...'}</Text>
               </View>
 
 
@@ -323,13 +382,13 @@ export default function RootLayout() {
 
               <View style={{ paddingHorizontal: 5, flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
                 <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{date ? `Date: ${date}` : 'loading...'}</Text>
-                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `latitude: ${location?.latitude}` : 'loading...'}</Text>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `latitude: ${location?.latitude.toFixed(5)}` : 'loading...'}</Text>
               </View>
 
 
               <View style={{ paddingHorizontal: 5, flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 }}>
                 <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{time ? `Time: ${time}` : 'loading...'}</Text>
-                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `longitude: ${location?.longitude}` : 'loading...'}</Text>
+                <Text style={{ color: 'black', fontWeight: 'bold', fontSize: 10 }}>{location ? `longitude: ${location?.longitude.toFixed(5)}` : 'loading...'}</Text>
               </View>
 
 
